@@ -1,0 +1,552 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "name": "entitie name Kelly help.ipynb",
+      "provenance": [],
+      "collapsed_sections": [],
+      "authorship_tag": "ABX9TyNEtN6MRF/pzg5hpdH5TYU7",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/stephanefschwarz/name-entity-recognition/blob/master/name-entity-recognition\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "_grv_GABWgnM",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "!pip install Spacy\n",
+        "import spacy\n",
+        "import tqdm\n",
+        "\n",
+        "!python -m spacy download pt"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "GS6FKGAsbH9S",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "from spacy import displacy\n",
+        "import random\n",
+        "from spacy.util import minibatch, compounding"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "RA2TEBi_kC2z",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "data = [('Almira é uma ótima pessoa, gosto muito dela', {'entities':[(0,6,'PER')]}),\n",
+        "        ('João foi para Bahia nas férias', {'entities':[(14,19,'LOC'), (0,4,'PER')]}),\n",
+        "        ('Fulano foi visitar João na casa de praia', {'entities':[(19,23,'LOC')]}),\n",
+        "        ('No meio do ano irei para São Paulo fazer mais um curso', {'entities':[(25,34,'LOC')]}),\n",
+        "        ('O sonho dela era ir para Austrália visitar seu irmão', {'entities':[(25,34,'LOC')]}),\n",
+        "        ('Em 15/07/1988 nasceu essa linda criança', {'entities':[(3,13,'DATE')]}),\n",
+        "        ('Data de Prisão: 10/01/2018', {'entities':[(16,26,'DATE')]}),\n",
+        "        ('No dia 01/02/2016 foi decretado a sentença', {'entities':[(7,17,'DATE')]}),\n",
+        "        ('A data da festa foi 07/05/2018', {'entities':[(20,30,'DATE')]}),\n",
+        "        ('Em 15/07/1988 nasceu essa linda criança', {'entities': [(3, 13, 'DATE')]}), \n",
+        "        ('Data de prisão: 10/01/2018', {'entities': [(16, 26, 'DATE')]}),\n",
+        "        ('No dia 01/02/2016 foi decretada a setença', {'entities': [(7, 17, 'DATE')]}),\n",
+        "        ('A data da festa foi 07/05/2019', {'entities': [(20, 30, 'DATE')]}),\n",
+        "        ('João, portador do cpf 123.456.789-65, foi encontrado', {'entities': [(0, 4, 'PER'), (18, 32, 'CPF')]}),\n",
+        "        ('O cpf 064.468.404-62 pertence a Maria', {'entities': [(6, 20, 'CPF'), (32, 37, 'PER')]})\n",
+        "        ]\n",
+        "\n",
+        "TRAIN_DATA = data"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "usqwSlc6Zmy2",
+        "colab_type": "code",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 107
+        },
+        "outputId": "d5345834-80aa-4a1d-9a3d-eb1f760cdb49"
+      },
+      "source": [
+        "nlp = spacy.blank('pt')\n",
+        "\n",
+        "text = nlp('Maria está se mudando para Paris. No dia 01/02/2019 ela irá partir.')\n",
+        "displacy.render(text, style='ent', jupyter=True)"
+      ],
+      "execution_count": 73,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "/usr/lib/python3.6/runpy.py:193: UserWarning: [W006] No entities to visualize found in Doc object. If this is surprising to you, make sure the Doc was processed using a model that supports named entity recognition, and check the `doc.ents` property manually if necessary.\n",
+            "  \"__main__\", mod_spec)\n"
+          ],
+          "name": "stderr"
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "<span class=\"tex2jax_ignore\"><div class=\"entities\" style=\"line-height: 2.5; direction: ltr\">Maria está se mudando para Paris. No dia 01/02/2019 ela irá partir.</div></span>"
+            ],
+            "text/plain": [
+              "<IPython.core.display.HTML object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "CA5wPWYZAVlW",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "ner = nlp.create_pipe('ner')\n",
+        "nlp.add_pipe(ner, last=True)"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "3IdTgv0kAtUA",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "for _, ano in data:\n",
+        "  for ent in ano.get('entities'):\n",
+        "    ner.add_label(ent[2])"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "-hO6JQP4A6cF",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "other = [pipe for pipe in nlp.pipe_names if pipe !='ner']\n",
+        "with nlp.disable_pipes(*other):\n",
+        "  opt = nlp.begin_training()\n",
+        "  for i in range(30):\n",
+        "    random.shuffle(data)\n",
+        "    loss = {}\n",
+        "\n",
+        "    for text, annot in data:\n",
+        "\n",
+        "      nlp.update([text],\n",
+        "                 [annot],\n",
+        "                 drop=0.5,\n",
+        "                 sgd=opt,\n",
+        "                 losses=loss)"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "m060UrjQB1H_",
+        "colab_type": "code",
+        "outputId": "946c3c61-8758-4fdc-8590-01e4de1960a8",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 542
+        }
+      },
+      "source": [
+        "for text, _ in data:\n",
+        "  doc = nlp(text)\n",
+        "  displacy.render(doc, style='ent', jupyter=True)"
+      ],
+      "execution_count": 77,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "<span class=\"tex2jax_ignore\"><div class=\"entities\" style=\"line-height: 2.5; direction: ltr\">O sonho dela era ir para \n",
+              "<mark class=\"entity\" style=\"background: #ff9561; padding: 0.45em 0.6em; margin: 0 0.25em; line-height: 1; border-radius: 0.35em;\">\n",
+              "    Austrália\n",
+              "    <span style=\"font-size: 0.8em; font-weight: bold; line-height: 1; border-radius: 0.35em; text-transform: uppercase; vertical-align: middle; margin-left: 0.5rem\">LOC</span>\n",
+              "</mark>\n",
+              " visitar seu irmão</div></span>"
+            ],
+            "text/plain": [
+              "<IPython.core.display.HTML object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "<span class=\"tex2jax_ignore\"><div class=\"entities\" style=\"line-height: 2.5; direction: ltr\">Data de prisão: \n",
+              "<mark class=\"entity\" style=\"background: #bfe1d9; padding: 0.45em 0.6em; margin: 0 0.25em; line-height: 1; border-radius: 0.35em;\">\n",
+              "    10/01/2018\n",
+              "    <span style=\"font-size: 0.8em; font-weight: bold; line-height: 1; border-radius: 0.35em; text-transform: uppercase; vertical-align: middle; margin-left: 0.5rem\">DATE</span>\n",
+              "</mark>\n",
+              "</div></span>"
+            ],
+            "text/plain": [
+              "<IPython.core.display.HTML object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "<span class=\"tex2jax_ignore\"><div class=\"entities\" style=\"line-height: 2.5; direction: ltr\">\n",
+              "<mark class=\"entity\" style=\"background: #ddd; padding: 0.45em 0.6em; margin: 0 0.25em; line-height: 1; border-radius: 0.35em;\">\n",
+              "    Almira\n",
+              "    <span style=\"font-size: 0.8em; font-weight: bold; line-height: 1; border-radius: 0.35em; text-transform: uppercase; vertical-align: middle; margin-left: 0.5rem\">PER</span>\n",
+              "</mark>\n",
+              " é uma ótima pessoa, gosto muito dela</div></span>"
+            ],
+            "text/plain": [
+              "<IPython.core.display.HTML object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "<span class=\"tex2jax_ignore\"><div class=\"entities\" style=\"line-height: 2.5; direction: ltr\">A data da festa foi \n",
+              "<mark class=\"entity\" style=\"background: #bfe1d9; padding: 0.45em 0.6em; margin: 0 0.25em; line-height: 1; border-radius: 0.35em;\">\n",
+              "    07/05/2019\n",
+              "    <span style=\"font-size: 0.8em; font-weight: bold; line-height: 1; border-radius: 0.35em; text-transform: uppercase; vertical-align: middle; margin-left: 0.5rem\">DATE</span>\n",
+              "</mark>\n",
+              "</div></span>"
+            ],
+            "text/plain": [
+              "<IPython.core.display.HTML object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "<span class=\"tex2jax_ignore\"><div class=\"entities\" style=\"line-height: 2.5; direction: ltr\">O cpf \n",
+              "<mark class=\"entity\" style=\"background: #ddd; padding: 0.45em 0.6em; margin: 0 0.25em; line-height: 1; border-radius: 0.35em;\">\n",
+              "    064.468.404-62\n",
+              "    <span style=\"font-size: 0.8em; font-weight: bold; line-height: 1; border-radius: 0.35em; text-transform: uppercase; vertical-align: middle; margin-left: 0.5rem\">CPF</span>\n",
+              "</mark>\n",
+              " pertence a \n",
+              "<mark class=\"entity\" style=\"background: #ddd; padding: 0.45em 0.6em; margin: 0 0.25em; line-height: 1; border-radius: 0.35em;\">\n",
+              "    Maria\n",
+              "    <span style=\"font-size: 0.8em; font-weight: bold; line-height: 1; border-radius: 0.35em; text-transform: uppercase; vertical-align: middle; margin-left: 0.5rem\">PER</span>\n",
+              "</mark>\n",
+              "</div></span>"
+            ],
+            "text/plain": [
+              "<IPython.core.display.HTML object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "<span class=\"tex2jax_ignore\"><div class=\"entities\" style=\"line-height: 2.5; direction: ltr\">A data da festa foi \n",
+              "<mark class=\"entity\" style=\"background: #bfe1d9; padding: 0.45em 0.6em; margin: 0 0.25em; line-height: 1; border-radius: 0.35em;\">\n",
+              "    07/05/2018\n",
+              "    <span style=\"font-size: 0.8em; font-weight: bold; line-height: 1; border-radius: 0.35em; text-transform: uppercase; vertical-align: middle; margin-left: 0.5rem\">DATE</span>\n",
+              "</mark>\n",
+              "</div></span>"
+            ],
+            "text/plain": [
+              "<IPython.core.display.HTML object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "<span class=\"tex2jax_ignore\"><div class=\"entities\" style=\"line-height: 2.5; direction: ltr\">\n",
+              "<mark class=\"entity\" style=\"background: #ddd; padding: 0.45em 0.6em; margin: 0 0.25em; line-height: 1; border-radius: 0.35em;\">\n",
+              "    João\n",
+              "    <span style=\"font-size: 0.8em; font-weight: bold; line-height: 1; border-radius: 0.35em; text-transform: uppercase; vertical-align: middle; margin-left: 0.5rem\">PER</span>\n",
+              "</mark>\n",
+              ", portador do cpf 123.456.789-65, foi encontrado</div></span>"
+            ],
+            "text/plain": [
+              "<IPython.core.display.HTML object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "<span class=\"tex2jax_ignore\"><div class=\"entities\" style=\"line-height: 2.5; direction: ltr\">Fulano foi visitar \n",
+              "<mark class=\"entity\" style=\"background: #ff9561; padding: 0.45em 0.6em; margin: 0 0.25em; line-height: 1; border-radius: 0.35em;\">\n",
+              "    João\n",
+              "    <span style=\"font-size: 0.8em; font-weight: bold; line-height: 1; border-radius: 0.35em; text-transform: uppercase; vertical-align: middle; margin-left: 0.5rem\">LOC</span>\n",
+              "</mark>\n",
+              " na casa de praia</div></span>"
+            ],
+            "text/plain": [
+              "<IPython.core.display.HTML object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "<span class=\"tex2jax_ignore\"><div class=\"entities\" style=\"line-height: 2.5; direction: ltr\">\n",
+              "<mark class=\"entity\" style=\"background: #ddd; padding: 0.45em 0.6em; margin: 0 0.25em; line-height: 1; border-radius: 0.35em;\">\n",
+              "    João\n",
+              "    <span style=\"font-size: 0.8em; font-weight: bold; line-height: 1; border-radius: 0.35em; text-transform: uppercase; vertical-align: middle; margin-left: 0.5rem\">PER</span>\n",
+              "</mark>\n",
+              " foi para \n",
+              "<mark class=\"entity\" style=\"background: #ff9561; padding: 0.45em 0.6em; margin: 0 0.25em; line-height: 1; border-radius: 0.35em;\">\n",
+              "    Bahia\n",
+              "    <span style=\"font-size: 0.8em; font-weight: bold; line-height: 1; border-radius: 0.35em; text-transform: uppercase; vertical-align: middle; margin-left: 0.5rem\">LOC</span>\n",
+              "</mark>\n",
+              " nas férias</div></span>"
+            ],
+            "text/plain": [
+              "<IPython.core.display.HTML object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "<span class=\"tex2jax_ignore\"><div class=\"entities\" style=\"line-height: 2.5; direction: ltr\">Data de Prisão: \n",
+              "<mark class=\"entity\" style=\"background: #bfe1d9; padding: 0.45em 0.6em; margin: 0 0.25em; line-height: 1; border-radius: 0.35em;\">\n",
+              "    10/01/2018\n",
+              "    <span style=\"font-size: 0.8em; font-weight: bold; line-height: 1; border-radius: 0.35em; text-transform: uppercase; vertical-align: middle; margin-left: 0.5rem\">DATE</span>\n",
+              "</mark>\n",
+              "</div></span>"
+            ],
+            "text/plain": [
+              "<IPython.core.display.HTML object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "<span class=\"tex2jax_ignore\"><div class=\"entities\" style=\"line-height: 2.5; direction: ltr\">Em \n",
+              "<mark class=\"entity\" style=\"background: #bfe1d9; padding: 0.45em 0.6em; margin: 0 0.25em; line-height: 1; border-radius: 0.35em;\">\n",
+              "    15/07/1988\n",
+              "    <span style=\"font-size: 0.8em; font-weight: bold; line-height: 1; border-radius: 0.35em; text-transform: uppercase; vertical-align: middle; margin-left: 0.5rem\">DATE</span>\n",
+              "</mark>\n",
+              " nasceu essa linda criança</div></span>"
+            ],
+            "text/plain": [
+              "<IPython.core.display.HTML object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "<span class=\"tex2jax_ignore\"><div class=\"entities\" style=\"line-height: 2.5; direction: ltr\">No dia \n",
+              "<mark class=\"entity\" style=\"background: #bfe1d9; padding: 0.45em 0.6em; margin: 0 0.25em; line-height: 1; border-radius: 0.35em;\">\n",
+              "    01/02/2016\n",
+              "    <span style=\"font-size: 0.8em; font-weight: bold; line-height: 1; border-radius: 0.35em; text-transform: uppercase; vertical-align: middle; margin-left: 0.5rem\">DATE</span>\n",
+              "</mark>\n",
+              " foi decretado a sentença</div></span>"
+            ],
+            "text/plain": [
+              "<IPython.core.display.HTML object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "<span class=\"tex2jax_ignore\"><div class=\"entities\" style=\"line-height: 2.5; direction: ltr\">No meio do ano irei para \n",
+              "<mark class=\"entity\" style=\"background: #ff9561; padding: 0.45em 0.6em; margin: 0 0.25em; line-height: 1; border-radius: 0.35em;\">\n",
+              "    São Paulo\n",
+              "    <span style=\"font-size: 0.8em; font-weight: bold; line-height: 1; border-radius: 0.35em; text-transform: uppercase; vertical-align: middle; margin-left: 0.5rem\">LOC</span>\n",
+              "</mark>\n",
+              " fazer mais um curso</div></span>"
+            ],
+            "text/plain": [
+              "<IPython.core.display.HTML object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "<span class=\"tex2jax_ignore\"><div class=\"entities\" style=\"line-height: 2.5; direction: ltr\">No dia \n",
+              "<mark class=\"entity\" style=\"background: #bfe1d9; padding: 0.45em 0.6em; margin: 0 0.25em; line-height: 1; border-radius: 0.35em;\">\n",
+              "    01/02/2016\n",
+              "    <span style=\"font-size: 0.8em; font-weight: bold; line-height: 1; border-radius: 0.35em; text-transform: uppercase; vertical-align: middle; margin-left: 0.5rem\">DATE</span>\n",
+              "</mark>\n",
+              " foi decretada a setença</div></span>"
+            ],
+            "text/plain": [
+              "<IPython.core.display.HTML object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "<span class=\"tex2jax_ignore\"><div class=\"entities\" style=\"line-height: 2.5; direction: ltr\">Em \n",
+              "<mark class=\"entity\" style=\"background: #bfe1d9; padding: 0.45em 0.6em; margin: 0 0.25em; line-height: 1; border-radius: 0.35em;\">\n",
+              "    15/07/1988\n",
+              "    <span style=\"font-size: 0.8em; font-weight: bold; line-height: 1; border-radius: 0.35em; text-transform: uppercase; vertical-align: middle; margin-left: 0.5rem\">DATE</span>\n",
+              "</mark>\n",
+              " nasceu essa linda criança</div></span>"
+            ],
+            "text/plain": [
+              "<IPython.core.display.HTML object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "bNuXB849bNkF",
+        "colab_type": "code",
+        "outputId": "1ddf5e50-6b28-465e-a013-87f2632e6a74",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 52
+        }
+      },
+      "source": [
+        "text = nlp('Maria está se mudando para Paris. No dia 01/02/2019 ela irá partir.')\n",
+        "displacy.render(text, style='ent', jupyter=True)"
+      ],
+      "execution_count": 78,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "<span class=\"tex2jax_ignore\"><div class=\"entities\" style=\"line-height: 2.5; direction: ltr\">\n",
+              "<mark class=\"entity\" style=\"background: #ddd; padding: 0.45em 0.6em; margin: 0 0.25em; line-height: 1; border-radius: 0.35em;\">\n",
+              "    Maria\n",
+              "    <span style=\"font-size: 0.8em; font-weight: bold; line-height: 1; border-radius: 0.35em; text-transform: uppercase; vertical-align: middle; margin-left: 0.5rem\">PER</span>\n",
+              "</mark>\n",
+              " está se mudando para \n",
+              "<mark class=\"entity\" style=\"background: #ff9561; padding: 0.45em 0.6em; margin: 0 0.25em; line-height: 1; border-radius: 0.35em;\">\n",
+              "    Paris\n",
+              "    <span style=\"font-size: 0.8em; font-weight: bold; line-height: 1; border-radius: 0.35em; text-transform: uppercase; vertical-align: middle; margin-left: 0.5rem\">LOC</span>\n",
+              "</mark>\n",
+              ". No dia \n",
+              "<mark class=\"entity\" style=\"background: #bfe1d9; padding: 0.45em 0.6em; margin: 0 0.25em; line-height: 1; border-radius: 0.35em;\">\n",
+              "    01/02/2019\n",
+              "    <span style=\"font-size: 0.8em; font-weight: bold; line-height: 1; border-radius: 0.35em; text-transform: uppercase; vertical-align: middle; margin-left: 0.5rem\">DATE</span>\n",
+              "</mark>\n",
+              " ela irá partir.</div></span>"
+            ],
+            "text/plain": [
+              "<IPython.core.display.HTML object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        }
+      ]
+    }
+  ]
+}
